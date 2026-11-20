@@ -72,6 +72,36 @@ test('team scoring: right adds, wrong subtracts when the penalty is on, and the 
   assert.strictEqual(L.markAttempt(s, bank, id, 0, true), 0, 'a closed clue cannot be scored again');
   assert.strictEqual(L.remaining(s), 29);
 });
+test('three and four teams: names, defaults, limits, and turn order', () => {
+  const four = game({ teams: 4, names: ['Realists', 'Liberals', '', 'Constructivists'] });
+  assert.deepStrictEqual(four.players.map(p => p.name), ['Realists', 'Liberals', 'Team C', 'Constructivists']);
+  assert.deepStrictEqual(game({ teams: 3, names: [] }).players.map(p => p.name), ['Team A', 'Team B', 'Team C']);
+  assert.strictEqual(game({ teams: 9 }).players.length, 4, 'never more than four teams');
+  assert.strictEqual(game({ teams: 1 }).players.length, 2, 'never fewer than two teams');
+  assert.strictEqual(game({ teams: undefined, names: ['A', 'B', 'C'] }).players.length, 3, 'without a count, the names decide');
+  assert.strictEqual(game({ mode: 'solo', teams: 4 }).players.length, 1, 'solo ignores the team count');
+  const id = plainId(four), v = L.itemOf(bank, id).value;
+  [0, 1, 2].forEach(p => assert.strictEqual(L.markAttempt(four, bank, id, p, false), -v));
+  assert.strictEqual(L.markAttempt(four, bank, id, 3, true), v);
+  assert.strictEqual(four.turn, 3, 'the fourth team was right, so it picks next');
+  assert.deepStrictEqual(four.players.map(p => p.score), [-v, -v, -v, v]);
+});
+test('leaders with more than two teams: one winner, a tie for first, or everyone tied', () => {
+  const s = game({ teams: 4 });
+  [500, 900, 300, 900].forEach((x, i) => L.setScore(s, i, x));
+  assert.deepStrictEqual(L.leaders(s), [1, 3]);
+  L.setScore(s, 3, 800); assert.deepStrictEqual(L.leaders(s), [1]);
+  assert.deepStrictEqual(L.leaders(game({ teams: 3 })), [0, 1, 2]);
+});
+test('saved games with three or four teams restore; impossible team counts do not', () => {
+  for (const n of [2, 3, 4]) { const s = game({ teams: n }); assert.deepStrictEqual(L.restore(JSON.stringify(s), bank), s); }
+  const five = game({ teams: 4 }); five.players.push({ name: 'E', score: 0, right: 0, wrong: 0 });
+  assert.strictEqual(L.restore(five, bank), null);
+  const lone = game(); lone.players.pop();
+  assert.strictEqual(L.restore(lone, bank), null);
+  const soloTwo = game({ mode: 'solo' }); soloTwo.players.push({ name: 'X', score: 0, right: 0, wrong: 0 });
+  assert.strictEqual(L.restore(soloTwo, bank), null);
+});
 test('no penalty: wrong answers cost nothing for teams when switched off, and never in solo play', () => {
   const t = game({ penalty: false }); const id = plainId(t);
   assert.strictEqual(L.markAttempt(t, bank, id, 0, false), 0);

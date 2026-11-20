@@ -8,6 +8,8 @@
   const VERSION = 1;
   const BONUS_MIN_VALUE = 300;      // the bonus wager clue never hides in the 100 or 200 row
   const WAGER_FLOOR = 500;          // a player with less than this may still wager up to this much
+  const MIN_TEAMS = 2, MAX_TEAMS = 4;
+  const TEAM_NAMES = ['Team A', 'Team B', 'Team C', 'Team D'];
 
   // Small seeded generator (mulberry32) so boards and choice order can be reproduced in tests.
   function rngFrom(seed) {
@@ -56,12 +58,15 @@
     return out;
   }
 
-  // opts: { mode: 'solo' | 'teams', names: [..], board: 1..4 | 'random', bonus: bool, penalty: bool, seed: int }
+  // opts: { mode: 'solo' | 'teams', teams: 2..4, names: [..], board: 1..4 | 'random', bonus: bool, penalty: bool, seed: int }
+  // Without `teams`, the number of names given decides (at least 2, at most 4).
   function newGame(bank, opts) {
     const seed = (opts.seed === undefined ? Math.floor(Math.random() * 2 ** 31) : opts.seed) >>> 0;
     const rng = rngFrom(seed);
     const mode = opts.mode === 'teams' ? 'teams' : 'solo';
-    const names = mode === 'teams' ? [opts.names && opts.names[0] || 'Team A', opts.names && opts.names[1] || 'Team B'] : ['You'];
+    const given = Array.isArray(opts.names) ? opts.names : [];
+    const n = Math.min(MAX_TEAMS, Math.max(MIN_TEAMS, Math.round(Number(opts.teams)) || given.length || MIN_TEAMS));
+    const names = mode === 'teams' ? TEAM_NAMES.slice(0, n).map((d, i) => (given[i] && String(given[i]).trim()) || d) : ['You'];
     return {
       v: VERSION, seed, mode,
       players: names.map(n => ({ name: String(n).slice(0, 24), score: 0, right: 0, wrong: 0 })),
@@ -150,7 +155,8 @@
   function restore(raw, bank) {
     let s;
     try { s = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return null; }
-    if (!s || s.v !== VERSION || !s.board || !Array.isArray(s.players) || !s.players.length) return null;
+    if (!s || s.v !== VERSION || !s.board || !Array.isArray(s.players)) return null;
+    if (s.mode === 'teams' ? s.players.length < MIN_TEAMS || s.players.length > MAX_TEAMS : s.players.length !== 1) return null;
     if (!['board', 'final', 'done'].includes(s.phase)) return null;
     const ids = new Set(bank.items.map(i => i.id));
     let cellIds;
@@ -162,7 +168,7 @@
     return s;
   }
 
-  return { VERSION, WAGER_FLOOR, rngFrom, shuffle, itemOf, buildBoard, boardIds, newGame, choiceOrder, wagerLimits,
+  return { VERSION, WAGER_FLOOR, MIN_TEAMS, MAX_TEAMS, TEAM_NAMES, rngFrom, shuffle, itemOf, buildBoard, boardIds, newGame, choiceOrder, wagerLimits,
     clampWager, isPlayed, hasAttempted, markAttempt, closeClue, remaining, isBoardDone, startFinal, markFinal, finish,
     leaders, missed, setScore, restore };
 });

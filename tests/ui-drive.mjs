@@ -1,5 +1,5 @@
 // Plays the real site in headless Chrome through the DevTools protocol: one full two-team game at projector
-// size, then one full solo game at phone size. Needs:
+// size, one full solo game at phone size, a four-team game at projector size, and three teams on a phone. Needs:
 //   python3 -m http.server 8766            (in the project folder)
 //   Chrome --headless=new --remote-debugging-port=9334
 // Run: node tests/ui-drive.mjs <folder-for-screenshots>
@@ -181,6 +181,61 @@ check('[phone] results with a review list of missed clues', (await screen()) ===
 await shot('17-phone-end'); await noOverflow('phone end');
 await click('[data-act=again]');
 check('[phone] play again starts a new solo game', (await screen()) === 'board' && (await scores())[0] === 0 && (await count('.cell.played')) === 0);
+
+// ===================== D. four teams at projector size =====================
+await fresh(1920, 1080, false);
+await click('[data-act=mode][data-v=teams]');
+check('[4 teams] two teams by default, with two name boxes', (await ev(`document.querySelector('[data-act=teams][data-v="2"]').getAttribute('aria-pressed')`)) === 'true' && (await count('.names input')) === 2);
+await ev(`document.getElementById('name0').value = 'Realists'`);
+await click('[data-act=teams][data-v="4"]');
+check('[4 teams] four name boxes, and a typed name survives the switch', (await count('.names input')) === 4 && (await ev(`document.getElementById('name0').value`)) === 'Realists');
+await ev(`['Liberals', 'Constructivists', 'Marxists'].forEach((n, i) => { document.getElementById('name' + (i + 1)).value = n; })`);
+await shot('21-setup-four-teams'); await noOverflow('four-team setup');
+await click('[data-act=start]'); s = await state();
+check('[4 teams] four teams with their names and four score chips', s.players.map(p => p.name).join() === 'Realists,Liberals,Constructivists,Marxists' && (await count('.chip')) === 4);
+await shot('22-board-four-teams'); await noOverflow('four-team board');
+cid = plain(s); const v4 = B[cid].value; await click(`[data-id="${cid}"]`);
+check('[4 teams] four marking rows, side by side', (await count('.mark')) === 4 && (await count('[data-act=mark]')) === 8
+  && (await ev(`new Set([...document.querySelectorAll('.mark')].map(e => Math.round(e.getBoundingClientRect().top))).size`)) === 1);
+for (const p of [0, 1, 2]) await click(`[data-act=mark][data-p="${p}"][data-c="0"]`);
+check('[4 teams] the clue stays open after three misses', (await count('[data-act=continue]')) === 0 && (await count('[data-act=mark]')) === 2);
+await key(' '); await click('[data-act=mark][data-p="3"][data-c="1"]');
+check('[4 teams] fourth team right: scored and resolved', JSON.stringify(await scores()) === JSON.stringify([-v4, -v4, -v4, v4]) && (await count('[data-act=continue]')) === 1);
+await shot('23-clue-four-teams'); await noOverflow('four-team clue');
+check('[4 teams] Continue is on screen with the answer showing', await ev(`(() => { const r = document.querySelector('[data-act=continue]').getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight; })()`));
+await click('[data-act=continue]');
+check('[4 teams] the fourth team picks next', /Marxists/.test(await text('.chip.picking')));
+await click('[data-act=scores]');
+check('[4 teams] edit scores lists all four teams', (await count('#dlg input')) === 4);
+await ev(`(() => { const f = document.querySelector('#dlg form'); f.requestSubmit(f.querySelector('button[value=cancel]')); })()`); await sleep(120);
+await click('[data-act=final]'); await ev(`(() => { const f = document.querySelector('#dlg form'); f.requestSubmit(f.querySelector('button[value=ok]')); })()`); await sleep(150);
+check('[4 teams] final intro shows four wager limits', (await screen()) === 'final' && (await count('.mark')) === 4);
+await click('[data-act=fclue]'); await click('[data-act=fanswer]');
+check('[4 teams] final scoring form has four teams', (await count('.final-form fieldset')) === 4);
+// Realists and Liberals each win 500; the other two wager nothing. With a 100-point first clue that ties the top two.
+await ev(`(() => { const f = document.querySelector('.final-form'); [['500', 1], ['500', 1], ['0', 0], ['0', 0]].forEach(([w, c], i) => { f['w' + i].value = w; f.querySelector('[name=c' + i + '][value="' + c + '"]').checked = true; }); })()`);
+await shot('24-final-four-teams'); await noOverflow('four-team final');
+check('[4 teams] Finish button is reachable without sideways scrolling', (await count('.final-form [data-primary]')) === 1);
+await ev(`document.querySelector('.final-form').requestSubmit()`); await sleep(150);
+const f4 = await scores();
+check('[4 teams] final wagers applied', JSON.stringify(f4) === JSON.stringify([500 - v4, 500 - v4, -v4, v4]), JSON.stringify(f4));
+if (v4 === 100) {
+  check('[4 teams] a tie for first names both teams', (await text('.end h1')) === 'Tie for first: Realists and Liberals', await text('.end h1'));
+  check('[4 teams] standings are listed best first', (await text('.end .lede')) === 'Realists 400 · Liberals 400 · Marxists 100 · Constructivists −100', await text('.end .lede'));
+} else check('[4 teams] first clue was the 100 square (needed for the tie check)', false, 'value ' + v4);
+await shot('25-end-four-teams'); await noOverflow('four-team end');
+
+// ===================== E. three teams on a phone =====================
+await fresh(390, 844, true);
+await click('[data-act=mode][data-v=teams]'); await click('[data-act=teams][data-v="3"]');
+check('[phone, 3 teams] three name boxes', (await count('.names input')) === 3);
+await shot('26-phone-setup-three'); await noOverflow('phone three-team setup');
+await click('[data-act=start]');
+check('[phone, 3 teams] three chips with default names', (await ev(`[...document.querySelectorAll('.chip-name')].map(e => e.textContent).join()`)) === 'Team A,Team B,Team C');
+await shot('27-phone-board-three'); await noOverflow('phone three-team board');
+s = await state(); await click(`[data-id="${plain(s)}"]`); await key(' ');
+await shot('28-phone-clue-three'); await noOverflow('phone three-team clue');
+check('[phone, 3 teams] three marking rows', (await count('.mark')) === 3);
 
 // ===================== C. solo on a laptop, for the screenshot =====================
 await fresh(1366, 768, false);

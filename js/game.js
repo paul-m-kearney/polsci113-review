@@ -15,8 +15,12 @@
   // ---------- state ----------
   let G = null;                                  // the game in progress (saved after every change)
   let ui = { screen: 'setup' };                  // what is on screen right now (never saved)
-  let setup = { mode: 'solo', names: ['Team A', 'Team B'], board: 'random', bonus: true, penalty: true };
+  let setup = { mode: 'solo', teams: 2, names: L.TEAM_NAMES.slice(), board: 'random', bonus: true, penalty: true };
   try { Object.assign(setup, JSON.parse(store.get(KEY_SETUP) || '{}')); } catch (e) { /* keep defaults */ }
+  // Settings saved by the two-team version have two names and no team count: fill in the rest.
+  setup.teams = Math.min(L.MAX_TEAMS, Math.max(L.MIN_TEAMS, Number(setup.teams) || L.MIN_TEAMS));
+  setup.names = L.TEAM_NAMES.map((d, i) => (Array.isArray(setup.names) && setup.names[i]) || d);
+  const ORDINAL = ['First', 'Second', 'Third', 'Fourth'];
   const saved = () => L.restore(store.get(KEY_GAME), BANK);
   const save = () => { if (G) store.set(KEY_GAME, JSON.stringify(G)); };
 
@@ -61,17 +65,20 @@
     const boards = [1, 2, 3, 4, 'random'];
     app.innerHTML = `<section class="setup">
       <h1>Ready to review?</h1>
-      <p class="lede">Thirty clues across six categories, then one final round. Play alone to study, or split the room into two teams.</p>
+      <p class="lede">Thirty clues across six categories, then one final round. Play alone to study, or split the room into as many as four teams.</p>
       ${resumable ? `<div class="resume"><span>You have a game in progress (${esc(s.players.map(p => p.name + ' ' + pts(p.score)).join(', '))}).</span>
         <button class="btn primary" data-act="resume">Resume game</button></div>` : ''}
       <h2>How are you playing?</h2>
       <div class="modes">
         <button class="mode" data-act="mode" data-v="solo" aria-pressed="${setup.mode === 'solo'}"><strong>Solo review</strong><span>Multiple choice, scored for you, with explanations.</span></button>
-        <button class="mode" data-act="mode" data-v="teams" aria-pressed="${setup.mode === 'teams'}"><strong>Two teams</strong><span>One shared screen. A host reads the clue and marks the answers.</span></button>
+        <button class="mode" data-act="mode" data-v="teams" aria-pressed="${setup.mode === 'teams'}"><strong>Teams</strong><span>Two to four teams on one shared screen. A host reads the clue and marks the answers.</span></button>
       </div>
-      ${setup.mode === 'teams' ? `<div class="names">
-        <label>First team<input id="name0" maxlength="24" value="${esc(setup.names[0])}"></label>
-        <label>Second team<input id="name1" maxlength="24" value="${esc(setup.names[1])}"></label></div>` : ''}
+      ${setup.mode === 'teams' ? `<h2>How many teams?</h2>
+      <div class="seg" role="group" aria-label="Number of teams">
+        ${[2, 3, 4].map(n => `<button data-act="teams" data-v="${n}" aria-pressed="${setup.teams === n}">${n} teams</button>`).join('')}
+      </div>
+      <div class="names">${setup.names.slice(0, setup.teams).map((nm, i) =>
+        `<label>${ORDINAL[i]} team<input id="name${i}" maxlength="24" value="${esc(nm)}"></label>`).join('')}</div>` : ''}
       <h2>Which board?</h2>
       <div class="seg" role="group" aria-label="Board">
         ${boards.map(b => `<button data-act="board" data-v="${b}" aria-pressed="${String(setup.board) === String(b)}">${b === 'random' ? 'Random mix' : 'Board ' + b}</button>`).join('')}
@@ -84,7 +91,7 @@
       <details class="how"><summary>How to play</summary>
         <ul>
           <li><strong>Solo:</strong> pick a square, choose one of four answers, and read the explanation. Wrong answers cost nothing, except on a wager.</li>
-          <li><strong>Teams:</strong> the team that picks reads the clue aloud. The host marks each team right or wrong, then shows the answer. A correct answer wins the next pick.</li>
+          <li><strong>Teams:</strong> two to four teams. The team that picks reads the clue aloud. The host marks teams right or wrong until one is right (or no one is), then shows the answer. A correct answer wins the next pick.</li>
           <li><strong>Bonus wager:</strong> one hidden square lets the player or picking team bet up to their score (or up to 500 if they have less).</li>
           <li><strong>Final round:</strong> one clue that ties several weeks together. Everyone wagers before seeing it.</li>
           <li><strong>Keys:</strong> Space shows the answer or continues, 1 to 4 pick a choice, Esc goes back.</li>
@@ -92,8 +99,7 @@
     </section>`;
   }
   function readSetup() {
-    const n0 = document.getElementById('name0'), n1 = document.getElementById('name1');
-    if (n0) setup.names = [n0.value.trim() || 'Team A', n1.value.trim() || 'Team B'];
+    setup.names = setup.names.map((nm, i) => { const el = document.getElementById('name' + i); return el ? el.value.trim() || L.TEAM_NAMES[i] : nm; });
     const b = document.getElementById('optBonus'), p = document.getElementById('optPenalty');
     if (b) setup.bonus = b.checked;
     if (p) setup.penalty = p.checked;
@@ -221,10 +227,10 @@
       body = `<p class="clue-text">${esc(it.clue)}</p>`;
       if (ui.step === 'clue') body += `<p class="clue-note">Teams write down their answers. Then:</p><div class="row"><button class="btn primary big" data-act="fanswer" data-primary>Show answer</button></div>`;
       else body += `${answerPanel(it)}<form class="final-form" data-form="finalteams">
-        ${G.players.map((p, i) => { const lim = L.wagerLimits(p.score, 'final'); return `<fieldset class="mark team${i}"><legend>${esc(p.name)}</legend>
+        <div class="final-teams">${G.players.map((p, i) => { const lim = L.wagerLimits(p.score, 'final'); return `<fieldset class="mark team${i}"><legend>${esc(p.name)}</legend>
           <label>Wager <input type="number" inputmode="numeric" name="w${i}" min="0" max="${lim.max}" step="50" value="0" required></label>
           <label class="radio"><input type="radio" name="c${i}" value="1" required> ✓ Right</label>
-          <label class="radio"><input type="radio" name="c${i}" value="0"> ✗ Wrong</label></fieldset>`; }).join('')}
+          <label class="radio"><input type="radio" name="c${i}" value="0"> ✗ Wrong</label></fieldset>`; }).join('')}</div>
         <div class="row"><button class="btn primary big" data-primary>Finish the game</button></div></form>`;
     }
     app.innerHTML = `<section class="game">${scorebar()}<div class="clue final">${head}${body}</div></section>`;
@@ -244,8 +250,13 @@
       const p = G.players[0], tried = p.right + p.wrong;
       headline = `You scored ${pts(p.score)}`;
       sub = tried ? `${p.right} of ${tried} correct` : 'No clues answered';
-    } else if (lead.length > 1) { headline = "It's a tie!"; sub = G.players.map(p => `${esc(p.name)} ${pts(p.score)}`).join(' · '); }
-    else { headline = `Winner: ${esc(G.players[lead[0]].name)}`; sub = G.players.map(p => `${esc(p.name)} ${pts(p.score)}`).join(' · '); }
+    } else {
+      const names = lead.map(i => esc(G.players[i].name));
+      if (lead.length === 1) headline = `Winner: ${names[0]}`;
+      else if (lead.length === G.players.length) headline = "It's a tie!";
+      else headline = `Tie for first: ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+      sub = G.players.slice().sort((a, b) => b.score - a.score).map(p => `${esc(p.name)} ${pts(p.score)}`).join(' · ');
+    }
     app.innerHTML = `<section class="end"><h1>${headline}</h1><p class="lede">${sub}</p>
       <div class="row"><button class="btn primary big" data-act="again" data-primary>Play again</button><button class="btn ghost" data-act="tosetup">Change settings</button></div>
       <h2>${solo() ? 'Review what you missed' : 'Clues nobody got'}</h2>
@@ -281,7 +292,7 @@
   }
   function startGame() {
     readSetup();
-    G = L.newGame(BANK, { mode: setup.mode, names: setup.names, board: setup.board === 'random' ? 'random' : Number(setup.board), bonus: setup.bonus, penalty: setup.penalty });
+    G = L.newGame(BANK, { mode: setup.mode, teams: setup.teams, names: setup.names.slice(0, setup.teams), board: setup.board === 'random' ? 'random' : Number(setup.board), bonus: setup.bonus, penalty: setup.penalty });
     save(); ui = { screen: 'board' }; render();
   }
   function continueFromClue() { ui = { screen: 'board' }; render(); }
@@ -290,6 +301,7 @@
     const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
     const act = b.dataset.act;
     if (act === 'mode') { readSetup(); setup.mode = b.dataset.v; store.set(KEY_SETUP, JSON.stringify(setup)); render(); }
+    else if (act === 'teams') { readSetup(); setup.teams = Number(b.dataset.v); store.set(KEY_SETUP, JSON.stringify(setup)); render(); }
     else if (act === 'board') { readSetup(); setup.board = b.dataset.v; store.set(KEY_SETUP, JSON.stringify(setup)); render(); }
     else if (act === 'start') startGame();
     else if (act === 'resume') { G = saved(); if (G) { ui = G.phase === 'final' ? { screen: 'final', step: 'intro', wager: null, picked: null, delta: 0 } : { screen: 'board' }; render(); } }

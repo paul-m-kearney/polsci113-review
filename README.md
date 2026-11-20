@@ -2,10 +2,10 @@
 
 A quiz-show review game for POLSCI 113, America in the World (Duke, Fall 2026). Thirty clues in six categories, one hidden bonus wager clue, and a final round. It runs in any browser with no install, no accounts, and no server.
 
-## Two ways to play
+## Ways to play
 
 - **Solo review.** Pick a square and choose one of four answers. The game scores it and shows the answer, a short explanation, and the week and reading it comes from. Wrong answers cost nothing, except on a wager. At the end you get a list of what you missed.
-- **Two teams.** One shared screen, with a host at the keyboard. The host reads the clue, marks each team right or wrong, and shows the answer. A wrong answer loses the clue's points (this can be switched off) and the other team may try. The team that answers correctly picks next.
+- **Teams (two to four).** One shared screen, with a host at the keyboard. Choose 2, 3, or 4 teams and name them on the setup screen. The host reads the clue, marks teams right or wrong, and shows the answer. A wrong answer loses the clue's points (this can be switched off) and the other teams may try, until one is right or every team has missed. The team that answers correctly picks next.
 
 Other rules:
 
@@ -43,8 +43,8 @@ Open `index.html` in a browser. Or, from this folder, run `python3 -m http.serve
 
 ## Tests
 
-- `node --test tests/*.test.js` checks the bank's structure and the rules (17 tests).
-- `node tests/ui-drive.mjs <folder>` plays a full team game and a full solo game in headless Chrome and saves screenshots. It needs the local server above on port 8766 and Chrome started with `--headless=new --remote-debugging-port=9334`.
+- `node --test tests/*.test.js` checks the bank's structure and the rules (20 tests).
+- `node tests/ui-drive.mjs <folder>` plays a full two-team game, a four-team game, and a full solo game in headless Chrome and saves screenshots. It needs the local server above on port 8766 and Chrome started with `--headless=new --remote-debugging-port=9334`.
 
 ## Putting it online with GitHub Pages
 
