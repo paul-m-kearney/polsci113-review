@@ -59,6 +59,13 @@
       <p class="answer-why">${esc(it.explain)}</p><p class="answer-src">${source(it)}</p></div>`;
   }
 
+  // Team play: the four choices on screen for everyone to read. The host still marks the answers;
+  // once the answer is shown, the correct choice lights up and the others fade.
+  function shownChoices(it, revealed) {
+    return `<div class="choices shown" aria-label="Choices">${L.choiceOrder(G, it).map((c, i) =>
+      `<div class="choice static${revealed ? (c.correct ? ' right' : ' dim') : ''}"><span class="choice-key">${revealed && c.correct ? '✓' : i + 1}</span><span>${esc(c.text)}</span></div>`).join('')}</div>`;
+  }
+
   // ---------- setup ----------
   function renderSetup() {
     const s = saved(), resumable = s && s.phase !== 'done';
@@ -71,7 +78,7 @@
       <h2>How are you playing?</h2>
       <div class="modes">
         <button class="mode" data-act="mode" data-v="solo" aria-pressed="${setup.mode === 'solo'}"><strong>Solo review</strong><span>Multiple choice, scored for you, with explanations.</span></button>
-        <button class="mode" data-act="mode" data-v="teams" aria-pressed="${setup.mode === 'teams'}"><strong>Teams</strong><span>Two to four teams on one shared screen. A host reads the clue and marks the answers.</span></button>
+        <button class="mode" data-act="mode" data-v="teams" aria-pressed="${setup.mode === 'teams'}"><strong>Teams</strong><span>Two to four teams on one shared screen. Everyone sees the clue and four choices; a host marks the answers.</span></button>
       </div>
       ${setup.mode === 'teams' ? `<h2>How many teams?</h2>
       <div class="seg" role="group" aria-label="Number of teams">
@@ -91,7 +98,7 @@
       <details class="how"><summary>How to play</summary>
         <ul>
           <li><strong>Solo:</strong> pick a square, choose one of four answers, and read the explanation. Wrong answers cost nothing, except on a wager.</li>
-          <li><strong>Teams:</strong> two to four teams. The team that picks reads the clue aloud. The host marks teams right or wrong until one is right (or no one is), then shows the answer. A correct answer wins the next pick.</li>
+          <li><strong>Teams:</strong> two to four teams. The team that picks reads the clue aloud, and the four choices are on screen for everyone. The host marks teams right or wrong until one is right (or no one is), then shows the answer. A correct answer wins the next pick.</li>
           <li><strong>Bonus wager:</strong> one hidden square lets the player or picking team bet up to their score (or up to 500 if they have less).</li>
           <li><strong>Final round:</strong> one clue that ties several weeks together. Everyone wagers before seeing it.</li>
           <li><strong>Keys:</strong> Space shows the answer or continues, 1 to 4 pick a choice, Esc goes back.</li>
@@ -168,7 +175,7 @@
           <button class="btn good" data-act="mark" data-p="${i}" data-c="1">✓ Right</button>
           <button class="btn bad" data-act="mark" data-p="${i}" data-c="0">✗ Wrong</button></div>`;
       }).join('');
-      body = `${ui.revealed ? answerPanel(it) : `<div class="row"><button class="btn primary big" data-act="reveal" data-primary>Show answer</button></div>`}
+      body = `${shownChoices(it, ui.revealed)}${ui.revealed ? answerPanel(it) : `<div class="row"><button class="btn primary big" data-act="reveal" data-primary>Show answer</button></div>`}
         <div class="marks">${marks}</div>
         <div class="row">${ui.resolved ? '<button class="btn primary big" data-act="continue" data-primary>Back to the board</button>'
           : (ui.bonus ? '' : '<button class="btn ghost" data-act="noone">No one got it</button>')}</div>`;
@@ -224,7 +231,7 @@
         ${done ? `<p class="verdict ${ui.delta > 0 ? 'good' : 'bad'}" role="status">${ui.delta > 0 ? 'Correct. ' : 'Not quite. '}${signed(ui.delta)}</p>${answerPanel(it)}
           <div class="row"><button class="btn primary big" data-act="results" data-primary>See your results</button></div>` : ''}`;
     } else {
-      body = `<p class="clue-text">${esc(it.clue)}</p>`;
+      body = `<p class="clue-text">${esc(it.clue)}</p>${shownChoices(it, ui.step !== 'clue')}`;
       if (ui.step === 'clue') body += `<p class="clue-note">Teams write down their answers. Then:</p><div class="row"><button class="btn primary big" data-act="fanswer" data-primary>Show answer</button></div>`;
       else body += `${answerPanel(it)}<form class="final-form" data-form="finalteams">
         <div class="final-teams">${G.players.map((p, i) => { const lim = L.wagerLimits(p.score, 'final'); return `<fieldset class="mark team${i}"><legend>${esc(p.name)}</legend>

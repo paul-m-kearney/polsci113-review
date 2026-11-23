@@ -5,7 +5,7 @@ A quiz-show review game for POLSCI 113, America in the World (Duke, Fall 2026). 
 ## Ways to play
 
 - **Solo review.** Pick a square and choose one of four answers. The game scores it and shows the answer, a short explanation, and the week and reading it comes from. Wrong answers cost nothing, except on a wager. At the end you get a list of what you missed.
-- **Teams (two to four).** One shared screen, with a host at the keyboard. Choose 2, 3, or 4 teams and name them on the setup screen. The host reads the clue, marks teams right or wrong, and shows the answer. A wrong answer loses the clue's points (this can be switched off) and the other teams may try, until one is right or every team has missed. The team that answers correctly picks next.
+- **Teams (two to four).** One shared screen, with a host at the keyboard. Choose 2, 3, or 4 teams and name them on the setup screen. Everyone sees the clue and its four choices on screen. The host marks teams right or wrong, then shows the answer, which lights up the correct choice. A wrong answer loses the clue's points (this can be switched off) and the other teams may try, until one is right or every team has missed. The team that answers correctly picks next.
 
 Other rules:
 
